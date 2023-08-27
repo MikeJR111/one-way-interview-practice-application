@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Way Interview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f3f4f6;
+        }
+        .container {
+            width: 80%;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+        h2, h3 {
+            color: #4a4a4a;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: #FFF;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Input Interview Questions</h2>
+    <textarea id="questionInput" rows="5" placeholder="Enter questions, one per line"></textarea>
+    <br>
+    <label><input type="radio" name="mode" value="order" checked> Display in Order</label>
+    <label><input type="radio" name="mode" value="random"> Display Randomly</label>
+    <br>
+    <button id="initInterview">Start Interview</button>
+    <button id="resetInterview">Reset Interview</button>
+    <br>
+    <h3>Current Question:</h3>
+    <p id="currentQuestion"></p>
+    <video id="preview" width="640" height="480" autoplay muted></video>
+    <p><span id="timer">00:00</span></p>
+    <button id="startRecord">Start Recording</button>
+    <button id="stopRecord" disabled>Stop Recording</button>
+    <button id="rerecord" disabled>Re-record</button>
+    <button id="download" disabled>Download</button>
+    <button id="nextQuestion" disabled>Next Question</button>
+    <br>
+    <h3>Recorded Responses:</h3>
+    <video id="recording" width="640" height="480" controls></video>
+</div>
+
+<script>
+    const questionInput = document.getElementById("questionInput");
+    const currentQuestionElement = document.getElementById("currentQuestion");
+    const startBtn = document.getElementById("startRecord");
+    const stopBtn = document.getElementById("stopRecord");
+    const nextBtn = document.getElementById("nextQuestion");
+    const timerElement = document.getElementById("timer");
+    const rerecordBtn = document.getElementById("rerecord");
+    const downloadBtn = document.getElementById("download");
+    const videoElement = document.getElementById("preview");
+    const recordingElement = document.getElementById("recording");
+
+    let questions = [];
+    let currentQuestionIndex = 0;
+    let mediaRecorder;
+    let recordedBlobs;
+
+    function displayQuestion() {
+        currentQuestionElement.textContent = questions[currentQuestionIndex];
+        nextBtn.disabled = true;
+    }
+
+    function stopCapture() {
+        mediaRecorder.stop();
+        stopBtn.disabled = true;
+        startBtn.disabled = false;
+        nextBtn.disabled = false;
+        rerecordBtn.disabled = false;
+        downloadBtn.disabled = false;
+    }
+
+    function startCapture() {
+        navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
+            videoElement.srcObject = stream;
+            videoElement.captureStream = videoElement.captureStream || videoElement.mozCaptureStream;
+            return new Promise(resolve => videoElement.onplaying = resolve);
+        }).then(() => {
+            recordedBlobs = [];
+            mediaRecorder = new MediaRecorder(videoElement.srcObject);
+            mediaRecorder.onstop = () => {
+                recordingElement.src = URL.createObjectURL(new Blob(recordedBlobs, {type: "video/webm"}));
+            };
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedBlobs.push(event.data);
+                }
+            };
+            mediaRecorder.start(10); // collect 10ms of data
+            startBtn.disabled = true;
+            rerecordBtn.disabled = true;
+            downloadBtn.disabled = true;
+            stopBtn.disabled = false;
+        }).catch(error => {
+            console.error("Error during recording:", error);
+        });
+    }
+
+    function download() {
+        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'interview.webm';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+    }
+
+    document.getElementById("initInterview").addEventListener("click", function() {
+        questions = questionInput.value.split('\n').filter(q => q.trim());
+        if (questions.length === 0) return;
+        currentQuestionIndex = 0;
+        displayQuestion();
+        startBtn.disabled = false;
+    });
+
+    document.getElementById("resetInterview").addEventListener("click", function() {
+        videoElement.srcObject = null;
+        recordingElement.src = "";
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        rerecordBtn.disabled = true;
+        downloadBtn.disabled = true;
+        currentQuestionElement.textContent = "";
+    });
+
+    document.getElementById("startRecord").addEventListener("click", startCapture);
+    document.getElementById("stopRecord").addEventListener("click", stopCapture);
+    document.getElementById("rerecord").addEventListener("click", () => {
+        recordingElement.src = "";
+        startCapture();
+    });
+    document.getElementById("download").addEventListener("click", download);
+
+    document.getElementById("nextQuestion").addEventListener("click", function() {
+        if (currentQuestionIndex < questions.length - 1) {
+            currentQuestionIndex++;
+            displayQuestion();
+            recordingElement.src = "";
+            startBtn.disabled = false;
+        } else {
+            alert("All questions completed!");
+            recordingElement.src = "";
+            startBtn.disabled = true;
+            nextBtn.disabled = true;
+        }
+    });
+</script>
+
+</body>
+</html>
